@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install mingw-w64
         run: |
@@ -122,7 +122,7 @@ jobs:
           ls -l dist
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ steps.package.outputs.pkg }}
           path: dist/*
@@ -134,7 +134,31 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          # 固定说明写在前面，--generate-notes 的自动变更日志会追加在其后
+          cat > /tmp/release-notes.md <<'EOF'
+          ### 下载与使用
+
+          1. 下载下方 `pptx_selector-<版本>-windows-x64.zip` 并解压（或直接下载裸 `pptx_selector.exe`）
+          2. 把 `pptx_selector.exe` 与 `config.ini` 放在**同一个目录**
+          3. 按实际安装路径修改 `config.ini` 里的 `PowerPoint` / `WPS` / `LogFile`
+          4. 将 `.pptx` 的默认打开方式设为本程序，双击即可自动选择对应软件打开
+
+          > 没有 `config.ini` 时程序会使用内置默认值运行，但路径可能不匹配实际安装位置，建议始终配置。
+
+          ### 产物说明
+
+          - 交叉编译目标 `x86_64-pc-windows-gnu`：x86-64、Windows GUI 子系统（无控制台窗口）、图标已嵌入
+          - 本 Release 由 GitHub Actions 自动构建，流水线为
+            `cargo fmt --check` → `cargo clippy -D warnings` → `cargo test` → 交叉编译 → `scripts/check_pe.py` 校验 PE 结构
+          - 校验通过后才会打包并发布
+
+          ### 已知限制
+
+          Windows 专属行为（`CreateProcessW`、无控制台窗口、图标、Unicode 参数）目前仅在 Wine 下做过
+          集成验证，尚未在真实 Windows 上验证。
+          EOF
           gh release create "${{ steps.package.outputs.release_tag }}" \
             --title "pptx_selector ${{ steps.package.outputs.version }}" \
+            --notes "$(cat /tmp/release-notes.md)" \
             --generate-notes \
             dist/*
