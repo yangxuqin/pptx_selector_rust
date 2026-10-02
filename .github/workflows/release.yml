@@ -112,12 +112,15 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "pkg=${PKG}" >> "$GITHUB_OUTPUT"
 
-          # 压缩包内含 exe + config.ini + README.md（config.ini 需与 exe 同目录）
+          # 压缩包内含 exe + config.ini + README.md + LICENSE
+          # （config.ini 需与 exe 同目录；MIT 要求分发时附带版权与许可声明）
           mkdir -p stage dist
           cp "target/${TARGET}/release/pptx_selector.exe" stage/pptx_selector.exe
           cp config.ini stage/
           cp README.md stage/
-          ( cd stage && zip -9 -r "../dist/${PKG}.zip" pptx_selector.exe config.ini README.md )
+          cp LICENSE stage/
+          ( cd stage && zip -9 -r "../dist/${PKG}.zip" \
+              pptx_selector.exe config.ini README.md LICENSE )
           cp "target/${TARGET}/release/pptx_selector.exe" dist/
           ls -l dist
 

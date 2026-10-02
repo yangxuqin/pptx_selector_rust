@@ -38,6 +38,7 @@ pptx_selector_rust/
 ├── README.md                 面向用户与开发者的项目文档
 ├── AGENTS.md                 本文件
 ├── Cargo.toml / Cargo.lock   依赖锁定
+├── LICENSE                   MIT 许可证（打包时随 exe 一同分发）
 ├── build.rs                  嵌入 Windows 图标（用 CARGO_CFG_TARGET_OS 判断 target）
 ├── config.ini                运行配置模板（与原项目逐字节一致）
 ├── .cargo/config.toml        windows-gnu 的 linker / ar

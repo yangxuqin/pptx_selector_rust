@@ -42,6 +42,7 @@ pptx_selector_rust/
 ├── README.md              本文档
 ├── AGENTS.md              AI 助手协作指引
 ├── Cargo.toml/.lock       依赖与构建配置
+├── LICENSE                MIT 许可证
 ├── build.rs               嵌入 Windows 图标
 ├── config.ini             运行配置（路径、日志、兜底策略）
 ├── .cargo/config.toml     交叉编译 linker / ar
@@ -256,3 +257,9 @@ python3 scripts/check_pe.py target/x86_64-pc-windows-gnu/release/pptx_selector.e
 5. 日志以 UTF-8（含 BOM）写入，便于记事本等工具正确识别中文
 6. **Windows 专属行为仅在 Wine 下做过集成验证，尚未在真实 Windows 上验证**
    （详见 [`docs/refactor-report.md`](docs/refactor-report.md)）
+
+## 许可证
+
+[MIT](LICENSE) © 2026 杨绪钦 (yangxuqin)
+
+Release 压缩包内随附 `LICENSE`，二次分发时请保留版权与许可声明。
