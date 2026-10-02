@@ -1,0 +1,140 @@
+# ============================================================================
+#  release.yml - 自动构建 Windows x64 Release
+# ============================================================================
+#  触发方式：
+#    1. 推送 v* 标签（git tag v1.0.0 && git push origin v1.0.0）
+#       → 交叉编译 exe，上传 Artifact，并自动创建 GitHub Release
+#    2. Actions 页面手动触发（workflow_dispatch）
+#       → 仅构建并上传 Artifact；若填写 tag 输入框，则同时创建 Release
+#
+#  构建方式与本地 scripts/verify.sh 完全一致：Linux 上用 mingw-w64 交叉编译到
+#  x86_64-pc-windows-gnu，链接器 / 归档器由仓库内 .cargo/config.toml 指定，
+#  因此不需要在 workflow 里额外配置任何 linker。
+# ============================================================================
+
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: '要发布的标签（留空则只产出 Artifact，不创建 Release）'
+        required: false
+        type: string
+        default: ''
+
+# gh release create 需要写 contents 权限
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  TARGET: x86_64-pc-windows-gnu
+
+jobs:
+  build-windows-x64:
+    name: Windows x64 (cross-compile)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install mingw-w64
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mingw-w64 zip
+          x86_64-w64-mingw32-gcc --version | head -1
+          x86_64-w64-mingw32-windres --version | head -1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ env.TARGET }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ env.TARGET }}
+
+      # ---- 静态检查：对齐 AGENTS.md 的编码约定 ----
+      - name: Format check
+        run: cargo fmt --check
+
+      - name: Clippy (host)
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Clippy (windows target)
+        run: cargo clippy --target ${{ env.TARGET }} --all-targets -- -D warnings
+
+      # ---- 单元测试：fixture 已入库，无需额外生成 ----
+      - name: Unit tests
+        run: cargo test
+
+      # ---- 交叉编译 Windows x64 ----
+      - name: Build Windows release
+        run: cargo build --release --target ${{ env.TARGET }}
+
+      - name: Verify PE binary
+        run: |
+          set -euo pipefail
+          EXE="target/${TARGET}/release/pptx_selector.exe"
+          test -f "$EXE"
+          file "$EXE"
+          # 直接解析 PE 头，避免依赖 file(1) 随版本变化的输出格式：
+          # 校验 x86-64 + GUI 子系统（无控制台窗口）+ 非空 .rsrc（图标已嵌入）
+          python3 scripts/check_pe.py "$EXE"
+          SIZE="$(stat -c%s "$EXE")"
+          echo "exe 体积: ${SIZE} 字节"
+          test "$SIZE" -gt 100000 -a "$SIZE" -lt 5242880 \
+            || { echo "::error::exe 体积异常: ${SIZE}"; exit 1; }
+
+      - name: Package
+        id: package
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="${{ inputs.tag }}"
+          fi
+          if [[ -n "$TAG" ]]; then
+            VERSION="${TAG#v}"
+            echo "release_tag=${TAG}" >> "$GITHUB_OUTPUT"
+          else
+            # 手动触发且未填 tag：只产出 Artifact
+            VERSION="0.0.0-dev.${GITHUB_SHA::7}"
+          fi
+          PKG="pptx_selector-${VERSION}-windows-x64"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "pkg=${PKG}" >> "$GITHUB_OUTPUT"
+
+          # 压缩包内含 exe + config.ini + README.md（config.ini 需与 exe 同目录）
+          mkdir -p stage dist
+          cp "target/${TARGET}/release/pptx_selector.exe" stage/pptx_selector.exe
+          cp config.ini stage/
+          cp README.md stage/
+          ( cd stage && zip -9 -r "../dist/${PKG}.zip" pptx_selector.exe config.ini README.md )
+          cp "target/${TARGET}/release/pptx_selector.exe" dist/
+          ls -l dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.package.outputs.pkg }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: steps.package.outputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "${{ steps.package.outputs.release_tag }}" \
+            --title "pptx_selector ${{ steps.package.outputs.version }}" \
+            --generate-notes \
+            dist/*

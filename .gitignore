@@ -1,0 +1,23 @@
+# ---- 构建产物 ----
+/target/
+
+# ---- 日志 ----
+*.log
+logs/
+
+# ---- 测试 fixture：超大文件按需生成，不入库 ----
+/tests/fixtures/big_*.pptx
+
+# ---- Wine / 验证临时目录 ----
+/.wine-check/
+
+# ---- IDE / 编辑器 ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---- CI / 本地打包临时目录 ----
+/dist/
+/stage/

@@ -1,0 +1,7 @@
+# 交叉编译 x86_64-pc-windows-gnu 时使用的链接器与归档工具。
+# 环境准备（说明书中由开发者预先完成）：
+#   rustup target add x86_64-pc-windows-gnu
+#   安装 mingw-w64-gcc / x86_64-w64-mingw32-windres
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-ar"

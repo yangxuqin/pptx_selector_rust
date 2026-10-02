@@ -1,0 +1,45 @@
+[package]
+name = "pptx_selector"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+description = "根据 PPTX 文件的创建软件自动选择 PowerPoint 或 WPS 打开"
+license = "MIT"
+
+[[bin]]
+name = "pptx_selector"
+path = "src/main.rs"
+
+# ZIP 流式读取：只解析中央目录定位 entry，绝不把整个 PPTX 读入内存。
+# 注意：rawzip 是纯容器库，本身不含任何解压能力，必须自行提供 DEFLATE 解压。
+[dependencies]
+rawzip = "0.5"
+# 流式 XML 事件解析，仅用于提取 <Application> 文本；不启用任何默认 feature。
+quick-xml = { version = "0.42", default-features = false }
+# 原项目 miniz 的官方 Rust 移植（唯一传递依赖 adler2），仅用于 DEFLATE 解压。
+miniz_oxide = "0.9"
+
+[target.'cfg(windows)'.dependencies]
+# feature 按实际调用的 Win32 API 配置；缺少 feature 会编译报错，按报错补齐。
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Environment",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
+    "Win32_System_Threading",
+    "Win32_System_WindowsProgramming",
+    "Win32_UI_Shell",
+] }
+
+[build-dependencies]
+# 嵌入 Windows 图标。
+winresource = "0.1"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
